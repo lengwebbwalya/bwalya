@@ -31,7 +31,8 @@ router.post('/image', upload.single('file'), async (req, res) => {
       folder: 'contentapp/images',
       public_id: `img_${uuidv4()}`,
       resource_type: 'image',
-      transformation: [{ quality: 'auto', fetch_format: 'auto' }],
+      // No baked transformation — optimization applied via URL params at display time
+      // so each use case (thumbnail vs hero vs detail) gets the right size
     });
 
     res.json({
