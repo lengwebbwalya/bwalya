@@ -49,7 +49,7 @@ router.get('/', async (req, res) => {
 
     let query = supabase
       .from('content')
-      .select('id, type, title, slug, cover_url, tags, published_at, views, featured, created_at')
+      .select('id, type, title, slug, cover_url, file_url, tags, published_at, views, featured, created_at')
       .order('created_at', { ascending: false })
       .range(Number(offset), Number(offset) + Number(limit) - 1);
 
