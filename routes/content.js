@@ -81,11 +81,13 @@ router.get('/:slug', async (req, res) => {
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Not found' });
 
-    // Increment views
-    await supabase
-      .from('content')
-      .update({ views: (data.views || 0) + 1 })
-      .eq('id', data.id);
+    // Increment views — skip if ?nocount=1 (used for repeat views in same session)
+    if (!req.query.nocount) {
+      await supabase
+        .from('content')
+        .update({ views: (data.views || 0) + 1 })
+        .eq('id', data.id);
+    }
 
     // Fetch full content from Cloudinary if content_url exists
     let richContent = null;
