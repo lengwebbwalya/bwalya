@@ -280,13 +280,15 @@ router.delete('/:id', async (req, res) => {
         );
       }
 
-      // 3. Content JSON (description, body, author stored as raw JSON)
-      if (existing.content_url) {
-        const pid = extractPublicId(existing.content_url);
-        if (pid) cleanups.push(
-          cloudinary.uploader.destroy(pid, { resource_type: 'raw' }).catch(() => {})
-        );
-      }
+      // 3. Content JSON — use known public_id directly (folder/content_id)
+      // Cloudinary public_id is always: contentapp/content/content_{id}
+      cleanups.push(
+        cloudinary.uploader.destroy(`contentapp/content/content_${id}`, { resource_type: 'raw' }).catch(() => {})
+      );
+      // Also try with .json extension in case Cloudinary stored it that way
+      cleanups.push(
+        cloudinary.uploader.destroy(`contentapp/content/content_${id}.json`, { resource_type: 'raw' }).catch(() => {})
+      );
 
       // Run all deletions in parallel — don't let one failure block others
       await Promise.all(cleanups);
