@@ -81,11 +81,12 @@ router.get('/:slug', async (req, res) => {
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Not found' });
 
-    // Increment views — skip if ?nocount=1 (used for repeat views in same session)
+    // Increment views — skip if ?nocount=1
+    const newViews = req.query.nocount ? (data.views || 0) : (data.views || 0) + 1;
     if (!req.query.nocount) {
       await supabase
         .from('content')
-        .update({ views: (data.views || 0) + 1 })
+        .update({ views: newViews })
         .eq('id', data.id);
     }
 
@@ -95,7 +96,8 @@ router.get('/:slug', async (req, res) => {
       richContent = await fetchContentFromCloudinary(data.content_url);
     }
 
-    res.json({ ...data, rich_content: richContent });
+    // Return incremented count in response
+    res.json({ ...data, views: newViews, rich_content: richContent });
   } catch (err) {
     console.error('Fetch single error:', err);
     res.status(500).json({ error: err.message });
@@ -225,27 +227,72 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE content
+
+// Extract Cloudinary public_id from a URL
+// e.g. https://res.cloudinary.com/cloud/image/upload/v123/contentapp/images/img_abc.jpg
+// → contentapp/images/img_abc
+function extractPublicId(url) {
+  if (!url || !url.includes('/upload/')) return null;
+  let after = url.split('/upload/')[1];
+  // Remove version prefix v12345/
+  after = after.replace(/^v\d+\//, '');
+  // Remove file extension
+  after = after.replace(/\.[^/.]+$/, '');
+  return after;
+}
+
+function getResourceType(url) {
+  if (!url) return 'image';
+  if (url.includes('/video/upload/')) return 'video';
+  if (url.includes('/raw/upload/'))   return 'raw';
+  return 'image';
+}
+
+// DELETE content — removes ALL associated Cloudinary files
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Get existing to clean up Cloudinary files
-    const { data: existing } = await supabase.from('content').select('*').eq('id', id).single();
+    // Fetch full record first so we know what to delete
+    const { data: existing } = await supabase
+      .from('content')
+      .select('*')
+      .eq('id', id)
+      .single();
 
     if (existing) {
-      // Clean up Cloudinary files
       const cleanups = [];
+
+      // 1. Cover image
       if (existing.cover_url) {
-        const pid = existing.cover_url.split('/').pop().split('.')[0];
-        cleanups.push(cloudinary.uploader.destroy(`contentapp/images/${pid}`).catch(() => {}));
+        const pid = extractPublicId(existing.cover_url);
+        if (pid) cleanups.push(
+          cloudinary.uploader.destroy(pid, { resource_type: 'image' }).catch(() => {})
+        );
       }
+
+      // 2. Attached file (PDF, video, audio)
+      if (existing.file_url) {
+        const pid = extractPublicId(existing.file_url);
+        const rt  = getResourceType(existing.file_url);
+        if (pid) cleanups.push(
+          cloudinary.uploader.destroy(pid, { resource_type: rt }).catch(() => {})
+        );
+      }
+
+      // 3. Content JSON (description, body, author stored as raw JSON)
       if (existing.content_url) {
-        cleanups.push(cloudinary.uploader.destroy(`contentapp/content/content_${id}`, { resource_type: 'raw' }).catch(() => {}));
+        const pid = extractPublicId(existing.content_url);
+        if (pid) cleanups.push(
+          cloudinary.uploader.destroy(pid, { resource_type: 'raw' }).catch(() => {})
+        );
       }
+
+      // Run all deletions in parallel — don't let one failure block others
       await Promise.all(cleanups);
     }
 
+    // Remove from Supabase
     const { error } = await supabase.from('content').delete().eq('id', id);
     if (error) throw error;
 
