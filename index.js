@@ -4,6 +4,7 @@ const path = require('path');
 
 const contentRoutes = require('./routes/content');
 const uploadRoutes = require('./routes/upload');
+const settingsRoutes = require('./routes/settings');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,6 +35,7 @@ app.use('/', express.static(path.join(__dirname, '../public')));
 // API Routes
 app.use('/api/content', contentRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Admin app route
 app.get('/admin', (req, res) => {
