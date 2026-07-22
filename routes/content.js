@@ -120,6 +120,7 @@ router.post('/', async (req, res) => {
       author,
       external_link,
       extra_metadata, // any extra key-value pairs
+      book_reviews,   // array of {name, role, review, photo} for books
     } = req.body;
 
     if (!title || !type) {
@@ -141,6 +142,8 @@ router.post('/', async (req, res) => {
       if (author) contentObj.author = author;
       if (external_link) contentObj.external_link = external_link;
       if (extra_metadata) contentObj.extra_metadata = extra_metadata;
+      if (book_reviews) contentObj.book_reviews = book_reviews;
+      if (book_reviews && book_reviews.length) contentObj.book_reviews = book_reviews;
 
       content_url = await uploadContentToCloudinary(contentObj, `content_${id}`);
     }
@@ -176,7 +179,7 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const {
       type, title, tags, cover_url, file_url, featured,
-      body, description, author, external_link, extra_metadata,
+      body, description, author, external_link, extra_metadata, book_reviews,
     } = req.body;
 
     // Get existing record
@@ -189,13 +192,15 @@ router.put('/:id', async (req, res) => {
 
     // Re-upload content JSON to Cloudinary (overwrites existing)
     let content_url = existing.content_url;
-    if (body !== undefined || description !== undefined || author !== undefined || external_link !== undefined || extra_metadata !== undefined) {
+    if (body !== undefined || description !== undefined || author !== undefined || external_link !== undefined || extra_metadata !== undefined || book_reviews !== undefined) {
       const contentObj = {};
       if (body) contentObj.body = body;
       if (description) contentObj.description = description;
       if (author) contentObj.author = author;
       if (external_link) contentObj.external_link = external_link;
       if (extra_metadata) contentObj.extra_metadata = extra_metadata;
+      if (book_reviews) contentObj.book_reviews = book_reviews;
+      if (book_reviews && book_reviews.length) contentObj.book_reviews = book_reviews;
 
       content_url = await uploadContentToCloudinary(contentObj, `content_${id}`);
     }
